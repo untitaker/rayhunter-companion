@@ -89,10 +89,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.btnAddNetwork.setOnClickListener {
-            addNewNetwork()
-        }
-        
         binding.btnScanNetworks.setOnClickListener {
             showScanDialog()
         }
@@ -237,34 +233,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addNewNetwork() {
-        val ssid = binding.etNewSSID.text.toString().trim()
-        val password = binding.etNewPassword.text.toString()
-
-        if (ssid.isEmpty()) {
-            Toast.makeText(this, "Please enter SSID", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        Log.d("MainActivity", "addNewNetwork() called with SSID: $ssid")
-        lifecycleScope.launch(Dispatchers.IO) {
-            Log.d("MainActivity", "About to call networkStorage.saveNetwork()")
-            val success = networkStorage.saveNetwork(ssid, password)
-            Log.d("MainActivity", "saveNetwork returned: $success")
-            
-            withContext(Dispatchers.Main) {
-                if (success) {
-                    binding.etNewSSID.text?.clear()
-                    binding.etNewPassword.text?.clear()
-                    Toast.makeText(this@MainActivity, "Network added", Toast.LENGTH_SHORT).show()
-                    Log.d("MainActivity", "About to call loadSavedNetworks() after successful save")
-                    loadSavedNetworks()
-                } else {
-                    Toast.makeText(this@MainActivity, "Failed to save network", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 
     private fun deleteNetwork(network: SavedNetwork) {
         lifecycleScope.launch(Dispatchers.IO) {

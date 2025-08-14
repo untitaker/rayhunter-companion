@@ -35,59 +35,13 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <Button
+                    android:id="@+id/btnScanNetworks"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:hint="SSID">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etNewSSID"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:singleLine="true" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:hint="Password"
-                    app:passwordToggleEnabled="true">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etNewPassword"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:singleLine="true" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
-
-                    <Button
-                        android:id="@+id/btnScanNetworks"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="Scan Networks" />
-
-                    <Button
-                        android:id="@+id/btnAddNetwork"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Add Manually" />
-
-                </LinearLayout>
+                    android:text="Scan Networks"
+                    android:textSize="16sp"
+                    style="@style/Widget.Material3.Button" />
 
             </LinearLayout>
 
