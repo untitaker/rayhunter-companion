@@ -296,7 +296,6 @@ class MainActivity : AppCompatActivity() {
                 
                 val intent = Intent(this@MainActivity, WebViewActivity::class.java).apply {
                     putExtra(WebViewActivity.EXTRA_NETWORK_SSID, network.ssid)
-                    putExtra(WebViewActivity.EXTRA_NETWORK_URL, "http://192.168.0.1:8080")
                     putExtra(WebViewActivity.EXTRA_NETWORK_PASSWORD, network.password)
                 }
                 startActivity(intent)
@@ -306,6 +305,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
 
 
     private suspend fun connectToWifiSuspend(ssid: String, password: String): Boolean {

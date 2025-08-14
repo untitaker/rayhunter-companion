@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
 import android.os.Build
 import android.os.Bundle
@@ -27,6 +28,7 @@ import kotlinx.coroutines.withContext
 class WebViewActivity : AppCompatActivity() {
     private lateinit var binding: ActivityWebviewBinding
     private lateinit var connectivityManager: ConnectivityManager
+    private lateinit var wifiManager: WifiManager
     private lateinit var networkStorage: NetworkStorage
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var targetNetwork: Network? = null
@@ -37,7 +39,6 @@ class WebViewActivity : AppCompatActivity() {
     
     companion object {
         const val EXTRA_NETWORK_SSID = "network_ssid"
-        const val EXTRA_NETWORK_URL = "network_url"
         const val EXTRA_NETWORK_PASSWORD = "network_password"
     }
     
@@ -48,12 +49,20 @@ class WebViewActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         networkStorage = NetworkStorage(this)
         
         val networkSSID = intent.getStringExtra(EXTRA_NETWORK_SSID) ?: "Unknown Network"
-        val networkURL = intent.getStringExtra(EXTRA_NETWORK_URL) ?: "http://192.168.0.1:8080"
         val networkPassword = intent.getStringExtra(EXTRA_NETWORK_PASSWORD) ?: ""
-        currentUrl = networkURL
+        
+        val gatewayIP = getGatewayIP()
+        if (gatewayIP == null) {
+            Toast.makeText(this, "Failed to detect router IP address", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        
+        currentUrl = "http://$gatewayIP:8080"
         
         // Load all networks and find current network index
         lifecycleScope.launch {
@@ -246,6 +255,26 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
     
+    private fun getGatewayIP(): String? {
+        return try {
+            val dhcpInfo = wifiManager.dhcpInfo
+            val gatewayIP = dhcpInfo.gateway
+            if (gatewayIP == 0) {
+                null
+            } else {
+                String.format(
+                    "%d.%d.%d.%d",
+                    (gatewayIP and 0xff),
+                    (gatewayIP shr 8 and 0xff),
+                    (gatewayIP shr 16 and 0xff),
+                    (gatewayIP shr 24 and 0xff)
+                )
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         
