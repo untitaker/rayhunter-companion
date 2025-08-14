@@ -6,39 +6,33 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.rayhunter.companion.data.SavedNetwork
+import com.rayhunter.companion.R
 import com.rayhunter.companion.databinding.ActivityWebviewBinding
-import com.rayhunter.companion.storage.NetworkStorage
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class WebViewActivity : AppCompatActivity() {
     private lateinit var binding: ActivityWebviewBinding
     private lateinit var connectivityManager: ConnectivityManager
-    private lateinit var wifiManager: WifiManager
-    private lateinit var networkStorage: NetworkStorage
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private var targetNetwork: Network? = null
     private var originalNetwork: Network? = null
-    private var allNetworks: List<SavedNetwork> = emptyList()
-    private var currentNetworkIndex: Int = 0
     private var currentUrl: String = ""
     
     companion object {
         const val EXTRA_NETWORK_SSID = "network_ssid"
+        const val EXTRA_NETWORK_URL = "network_url"
         const val EXTRA_NETWORK_PASSWORD = "network_password"
     }
     
@@ -49,29 +43,13 @@ class WebViewActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        networkStorage = NetworkStorage(this)
         
         val networkSSID = intent.getStringExtra(EXTRA_NETWORK_SSID) ?: "Unknown Network"
+        val networkURL = intent.getStringExtra(EXTRA_NETWORK_URL) ?: ""
         val networkPassword = intent.getStringExtra(EXTRA_NETWORK_PASSWORD) ?: ""
+        currentUrl = networkURL
         
-        val gatewayIP = getGatewayIP()
-        if (gatewayIP == null) {
-            Toast.makeText(this, "Failed to detect router IP address", Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
-        
-        currentUrl = "http://$gatewayIP:8080"
-        
-        // Load all networks and find current network index
-        lifecycleScope.launch {
-            allNetworks = withContext(Dispatchers.IO) {
-                networkStorage.getAllNetworks()
-            }
-            currentNetworkIndex = allNetworks.indexOfFirst { it.ssid == networkSSID }
-            if (currentNetworkIndex == -1) currentNetworkIndex = 0
-        }
+        Log.d("WebViewActivity", "Starting with SSID: $networkSSID, URL: $networkURL")
         
         // Set up the toolbar
         supportActionBar?.title = "Browse: $networkSSID"
@@ -83,46 +61,26 @@ class WebViewActivity : AppCompatActivity() {
         // Maintain WiFi connection for this network
         maintainNetworkConnection(networkSSID, networkPassword)
         
-        // Configure WebView (but don't load URL yet)
-        setupWebView()
-    }
-    
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun setupWebView() {
+        // Configure WebView
         binding.webView.apply {
             webViewClient = object : WebViewClient() {
-                
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    Log.d("WebViewActivity", "Page started loading: $url")
                     binding.progressBar.visibility = android.view.View.VISIBLE
-                }
-                
-                private var retryCount = 0
-                private val maxRetries = 10
-                
-                override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
-                    super.onReceivedError(view, request, error)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        Log.d("WebViewActivity", "WebView error - ${error?.description}, retry $retryCount/$maxRetries")
-                        
-                        if (retryCount < maxRetries) {
-                            retryCount++
-                            lifecycleScope.launch {
-                                delay(500) // Short delay between retries
-                                runOnUiThread {
-                                    view?.reload()
-                                }
-                            }
-                        } else {
-                            Toast.makeText(this@WebViewActivity, "Failed to load after $maxRetries attempts", Toast.LENGTH_SHORT).show()
-                        }
-                    }
                 }
                 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    retryCount = 0 // Reset retry count on successful load
+                    Log.d("WebViewActivity", "Page finished loading: $url")
                     binding.progressBar.visibility = android.view.View.GONE
+                }
+                
+                override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                    super.onReceivedError(view, request, error)
+                    Log.e("WebViewActivity", "WebView error: ${error?.description}")
+                    binding.progressBar.visibility = android.view.View.GONE
+                    Toast.makeText(this@WebViewActivity, "Failed to load page: ${error?.description}", Toast.LENGTH_LONG).show()
                 }
             }
             
@@ -132,28 +90,8 @@ class WebViewActivity : AppCompatActivity() {
                 cacheMode = WebSettings.LOAD_NO_CACHE
                 userAgentString = "RayHunter Companion App"
             }
-            
-            // url will be loaded later
-        }
-        
-        binding.btnBack.setOnClickListener {
-            switchToPreviousNetwork()
-        }
-        
-        binding.btnForward.setOnClickListener {
-            switchToNextNetwork()
-        }
-        
-        binding.btnRefresh.setOnClickListener {
-            binding.webView.reload()
         }
     }
-    
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
-    }
-    
     
     private fun maintainNetworkConnection(ssid: String, password: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -173,15 +111,16 @@ class WebViewActivity : AppCompatActivity() {
                 networkCallback = object : ConnectivityManager.NetworkCallback() {
                     override fun onAvailable(network: Network) {
                         Log.d("WebViewActivity", "Network available for $ssid")
-                        targetNetwork = network
                         
                         connectivityManager.bindProcessToNetwork(network)
                         
                         runOnUiThread {
                             Toast.makeText(this@WebViewActivity, "Locked to $ssid network", Toast.LENGTH_SHORT).show()
                             
-                            // now load the URL since network is connected
-                            binding.webView.loadUrl(currentUrl)
+                            // Load the URL since network is connected
+                            if (currentUrl.isNotEmpty()) {
+                                binding.webView.loadUrl(currentUrl)
+                            }
                         }
                     }
                     
@@ -212,69 +151,26 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
     
-    private fun switchToPreviousNetwork() {
-        if (allNetworks.isEmpty()) return
-        
-        currentNetworkIndex = if (currentNetworkIndex > 0) {
-            currentNetworkIndex - 1
-        } else {
-            allNetworks.size - 1
-        }
-        
-        switchToNetwork(allNetworks[currentNetworkIndex])
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.webview_menu, menu)
+        return true
     }
     
-    private fun switchToNextNetwork() {
-        if (allNetworks.isEmpty()) return
-        
-        currentNetworkIndex = if (currentNetworkIndex < allNetworks.size - 1) {
-            currentNetworkIndex + 1
-        } else {
-            0
-        }
-        
-        switchToNetwork(allNetworks[currentNetworkIndex])
-    }
-    
-    private fun switchToNetwork(network: SavedNetwork) {
-        connectivityManager.bindProcessToNetwork(null)
-        networkCallback?.let {
-            connectivityManager.unregisterNetworkCallback(it)
-        }
-        
-        supportActionBar?.title = "Browse: ${network.ssid}"
-        
-        binding.progressBar.visibility = android.view.View.VISIBLE
-        Toast.makeText(this, "Switching to ${network.ssid}...", Toast.LENGTH_SHORT).show()
-        
-        maintainNetworkConnection(network.ssid, network.password)
-        
-        lifecycleScope.launch {
-            delay(3000) // Wait for network connection
-            binding.webView.loadUrl(currentUrl)
-        }
-    }
-    
-    private fun getGatewayIP(): String? {
-        return try {
-            val dhcpInfo = wifiManager.dhcpInfo
-            val gatewayIP = dhcpInfo.gateway
-            if (gatewayIP == 0) {
-                null
-            } else {
-                String.format(
-                    "%d.%d.%d.%d",
-                    (gatewayIP and 0xff),
-                    (gatewayIP shr 8 and 0xff),
-                    (gatewayIP shr 16 and 0xff),
-                    (gatewayIP shr 24 and 0xff)
-                )
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_refresh -> {
+                binding.webView.reload()
+                true
             }
-        } catch (e: Exception) {
-            null
+            else -> super.onOptionsItemSelected(item)
         }
     }
-
+    
+    override fun onSupportNavigateUp(): Boolean {
+        finish()
+        return true
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         
@@ -291,7 +187,6 @@ class WebViewActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.e("WebViewActivity", "Failed to restore original network: ${e.message}")
-                // Fall back to clearing the binding
                 connectivityManager.bindProcessToNetwork(null)
                 runOnUiThread {
                     Toast.makeText(this, "Network connection reset", Toast.LENGTH_SHORT).show()

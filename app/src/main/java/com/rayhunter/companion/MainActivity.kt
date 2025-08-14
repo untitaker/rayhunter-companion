@@ -291,14 +291,23 @@ class MainActivity : AppCompatActivity() {
             val connected = connectToWifiSuspend(network.ssid, network.password)
             
             if (connected) {
-                // Launch WebView immediately
                 Toast.makeText(this@MainActivity, "Connected to ${network.ssid}", Toast.LENGTH_SHORT).show()
                 
-                val intent = Intent(this@MainActivity, WebViewActivity::class.java).apply {
-                    putExtra(WebViewActivity.EXTRA_NETWORK_SSID, network.ssid)
-                    putExtra(WebViewActivity.EXTRA_NETWORK_PASSWORD, network.password)
+                // Wait for DHCP to get gateway IP
+                try {
+                    val gatewayIP = waitForValidDHCP()
+                    val url = "http://$gatewayIP:8080"
+                    
+                    val intent = Intent(this@MainActivity, WebViewActivity::class.java).apply {
+                        putExtra(WebViewActivity.EXTRA_NETWORK_SSID, network.ssid)
+                        putExtra(WebViewActivity.EXTRA_NETWORK_PASSWORD, network.password)
+                        putExtra(WebViewActivity.EXTRA_NETWORK_URL, url)
+                    }
+                    startActivity(intent)
+                    
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Failed to detect router IP: ${e.message}", Toast.LENGTH_LONG).show()
                 }
-                startActivity(intent)
                 
             } else {
                 Toast.makeText(this@MainActivity, "Failed to connect to ${network.ssid}", Toast.LENGTH_SHORT).show()
@@ -307,6 +316,36 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+
+    private fun getGatewayIP(): String {
+        val dhcpInfo = wifiManager.dhcpInfo
+        val gatewayIP = dhcpInfo.gateway
+        
+        if (gatewayIP == 0) {
+            throw RuntimeException("Gateway IP is 0 - DHCP not available")
+        }
+        
+        return String.format(
+            "%d.%d.%d.%d",
+            (gatewayIP and 0xff),
+            (gatewayIP shr 8 and 0xff),
+            (gatewayIP shr 16 and 0xff),
+            (gatewayIP shr 24 and 0xff)
+        )
+    }
+    
+    private suspend fun waitForValidDHCP(): String {
+        repeat(10) { attempt ->
+            try {
+                return getGatewayIP()
+            } catch (e: Exception) {
+                if (attempt < 9) {
+                    delay(1000)
+                }
+            }
+        }
+        throw RuntimeException("Could not get gateway IP after 10 attempts")
+    }
 
     private suspend fun connectToWifiSuspend(ssid: String, password: String): Boolean {
         return try {

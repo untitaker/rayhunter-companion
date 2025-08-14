@@ -5,48 +5,6 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Navigation Controls -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
-        android:background="?attr/colorSurfaceVariant"
-        android:gravity="center">
-
-        <Button
-            android:id="@+id/btnBack"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="◀ Back"
-            android:textSize="12sp"
-            android:layout_marginEnd="4dp"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
-
-        <Button
-            android:id="@+id/btnForward"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Forward ▶"
-            android:textSize="12sp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
-
-        <Button
-            android:id="@+id/btnRefresh"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="↻ Refresh"
-            android:textSize="12sp"
-            android:layout_marginStart="4dp"
-            style="@style/Widget.Material3.Button" />
-
-    </LinearLayout>
-
     <!-- Progress Bar -->
     <ProgressBar
         android:id="@+id/progressBar"
