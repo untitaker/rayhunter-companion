@@ -15,7 +15,6 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
-import com.rayhunter.companion.data.ManifestResponse
 import com.rayhunter.companion.data.AnalysisResult
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -63,41 +62,36 @@ class WiFiLockService : Service() {
         super.onCreate()
         Log.d(TAG, "WiFiLockService onCreate() called")
         
-        try {
-            // Initialize WiFi lock
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                @Suppress("DEPRECATION")
-                wifiManager.createWifiLock("RayhunterWiFiLock")
-            } else {
-                @Suppress("DEPRECATION")
-                wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, "RayhunterWiFiLock")
-            }
-            Log.d(TAG, "WiFi lock initialized")
-            
-            // Initialize wake lock
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Rayhunter::WiFiWakeLock")
-            Log.d(TAG, "Wake lock initialized")
-            
-            // Initialize connectivity manager
-            connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            Log.d(TAG, "Connectivity manager initialized")
-            
-            // Initialize HTTP client and JSON parser
-            httpClient = OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
-            gson = Gson()
-            Log.d(TAG, "HTTP client initialized")
-            
-            createNotificationChannel()
-            Log.d(TAG, "WiFiLockService onCreate() completed successfully")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in onCreate(): ${e.message}", e)
+        // Initialize WiFi lock
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
+            wifiManager.createWifiLock("RayhunterWiFiLock")
+        } else {
+            @Suppress("DEPRECATION")
+            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, "RayhunterWiFiLock")
         }
+        Log.d(TAG, "WiFi lock initialized")
+        
+        // Initialize wake lock
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Rayhunter::WiFiWakeLock")
+        Log.d(TAG, "Wake lock initialized")
+        
+        // Initialize connectivity manager
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        Log.d(TAG, "Connectivity manager initialized")
+        
+        // Initialize HTTP client and JSON parser
+        httpClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+        gson = Gson()
+        Log.d(TAG, "HTTP client initialized")
+        
+        createNotificationChannel()
+        Log.d(TAG, "WiFiLockService onCreate() completed successfully")
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -117,46 +111,19 @@ class WiFiLockService : Service() {
                 startPolling()
                 
                 // Start foreground service with notification
-                try {
-                    val notification = createNotification(ssid, url)
-                    startForeground(NOTIFICATION_ID, notification)
-                    Log.d(TAG, "Foreground service started with notification")
-                } catch (e: SecurityException) {
-                    Log.e(TAG, "Failed to start foreground service - notification permission missing: ${e.message}")
-                    // Show regular notification as fallback
-                    try {
-                        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                        val notification = createNotification(ssid, url)
-                        notificationManager.notify(NOTIFICATION_ID, notification)
-                        Log.d(TAG, "Showing regular notification as fallback")
-                    } catch (e2: Exception) {
-                        Log.e(TAG, "Failed to show fallback notification: ${e2.message}")
-                    }
-                    Log.w(TAG, "Service will continue without foreground status - may be killed by system")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start foreground service: ${e.message}")
-                    // Try to stop the service if we can't go foreground
-                    stopSelf()
-                    return START_NOT_STICKY
-                }
+                val notification = createNotification(ssid, url)
+                startForeground(NOTIFICATION_ID, notification)
+                Log.d(TAG, "Foreground service started with notification")
                 
                 // Acquire locks
-                try {
-                    if (!wifiLock.isHeld) {
-                        wifiLock.acquire()
-                        Log.d(TAG, "WiFi lock acquired")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to acquire WiFi lock: ${e.message}")
+                if (!wifiLock.isHeld) {
+                    wifiLock.acquire()
+                    Log.d(TAG, "WiFi lock acquired")
                 }
                 
-                try {
-                    if (!wakeLock.isHeld) {
-                        wakeLock.acquire(10*60*1000L) // 10 minutes timeout, will be renewed
-                        Log.d(TAG, "Wake lock acquired")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to acquire wake lock: ${e.message}")
+                if (!wakeLock.isHeld) {
+                    wakeLock.acquire(10*60*1000L) // 10 minutes timeout, will be renewed
+                    Log.d(TAG, "Wake lock acquired")
                 }
                 
                 // Service is now running with locks active
@@ -254,12 +221,7 @@ class WiFiLockService : Service() {
         pollingJob = serviceScope.launch {
             // Poll immediately, then continue polling every 30 seconds
             while (isActive) {
-                try {
-                    checkRayhunterStatus()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during polling: ${e.message}")
-                }
-                
+                checkRayhunterStatus()
                 delay(30000L) // Wait 30 seconds before next check
             }
         }
@@ -268,44 +230,26 @@ class WiFiLockService : Service() {
     
     private suspend fun checkRayhunterStatus() {
         try {
-            // Check if recording is active
-            val manifestRequest = Request.Builder()
-                .url("$baseUrl/api/qmdl-manifest")
-                .build()
-            
-            val manifestResponse = httpClient.newCall(manifestRequest).execute()
-            if (!manifestResponse.isSuccessful) {
-                Log.w(TAG, "Failed to get manifest: ${manifestResponse.code}")
-                return
-            }
-            
-            val manifestJson = manifestResponse.body?.string() ?: return
-            val manifest = gson.fromJson(manifestJson, ManifestResponse::class.java)
-            
-            // Update status based on recording state
-            if (manifest.currentEntry != null) {
-                // Recording is active, check for warnings
-                checkForWarnings()
-            } else {
-                // No active recording
-                updateStatus(RecordingStatus.NOT_RECORDING)
-            }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking Rayhunter status: ${e.message}")
-        }
-    }
-    
-    private suspend fun checkForWarnings() {
-        try {
             val analysisRequest = Request.Builder()
                 .url("$baseUrl/api/analysis-report/live")
                 .build()
             
             val analysisResponse = httpClient.newCall(analysisRequest).execute()
-            if (!analysisResponse.isSuccessful) {
-                // It's normal for analysis to not be available immediately
-                return
+            
+            when {
+                analysisResponse.code == 503 -> {
+                    // SERVICE_UNAVAILABLE - No active recording
+                    updateStatus(RecordingStatus.NOT_RECORDING)
+                    if (hasWarnings) {
+                        hasWarnings = false
+                        cancelWarningNotification()
+                    }
+                    return
+                }
+                !analysisResponse.isSuccessful -> {
+                    // Other error - skip this check
+                    return
+                }
             }
             
             val analysisData = analysisResponse.body?.string() ?: return
@@ -314,15 +258,10 @@ class WiFiLockService : Service() {
             var foundWarnings = false
             for (line in lines) {
                 if (line.isBlank()) continue
-                try {
-                    val result = gson.fromJson(line, AnalysisResult::class.java)
-                    if (!result.warnings.isNullOrEmpty()) {
-                        foundWarnings = true
-                        break
-                    }
-                } catch (e: Exception) {
-                    // Skip malformed JSON lines
-                    continue
+                val result = gson.fromJson(line, AnalysisResult::class.java)
+                if (!result.warnings.isNullOrEmpty()) {
+                    foundWarnings = true
+                    break
                 }
             }
             
@@ -342,7 +281,7 @@ class WiFiLockService : Service() {
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking for warnings: ${e.message}")
+            Log.e(TAG, "Error checking Rayhunter status: ${e.message}")
         }
     }
     
@@ -391,45 +330,33 @@ class WiFiLockService : Service() {
         cancelWarningNotification()
         
         // Release WiFi lock with extra safety checks
-        try {
-            if (::wifiLock.isInitialized) {
-                if (wifiLock.isHeld) {
-                    wifiLock.release()
-                    Log.d(TAG, "WiFi lock released")
-                } else {
-                    Log.d(TAG, "WiFi lock was not held")
-                }
+        if (::wifiLock.isInitialized) {
+            if (wifiLock.isHeld) {
+                wifiLock.release()
+                Log.d(TAG, "WiFi lock released")
             } else {
-                Log.d(TAG, "WiFi lock was not initialized")
+                Log.d(TAG, "WiFi lock was not held")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error releasing WiFi lock: ${e.message}")
+        } else {
+            Log.d(TAG, "WiFi lock was not initialized")
         }
         
         // Release wake lock with extra safety checks
-        try {
-            if (::wakeLock.isInitialized) {
-                if (wakeLock.isHeld) {
-                    wakeLock.release()
-                    Log.d(TAG, "Wake lock released")
-                } else {
-                    Log.d(TAG, "Wake lock was not held")
-                }
+        if (::wakeLock.isInitialized) {
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+                Log.d(TAG, "Wake lock released")
             } else {
-                Log.d(TAG, "Wake lock was not initialized")
+                Log.d(TAG, "Wake lock was not held")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error releasing wake lock: ${e.message}")
+        } else {
+            Log.d(TAG, "Wake lock was not initialized")
         }
         
         // Reset network binding with safety check
-        try {
-            if (::connectivityManager.isInitialized) {
-                connectivityManager.bindProcessToNetwork(null)
-                Log.d(TAG, "Network binding reset")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error resetting network binding: ${e.message}")
+        if (::connectivityManager.isInitialized) {
+            connectivityManager.bindProcessToNetwork(null)
+            Log.d(TAG, "Network binding reset")
         }
     }
     
