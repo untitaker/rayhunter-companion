@@ -136,10 +136,10 @@ class WebViewActivity : AppCompatActivity() {
                         connectivityManager.bindProcessToNetwork(network)
                         
                         // Now start the foreground service after network is ready
-                        val serviceIntent = Intent(this@WebViewActivity, WiFiLockService::class.java).apply {
-                            action = WiFiLockService.ACTION_START
-                            putExtra(WiFiLockService.EXTRA_SSID, ssid)
-                            putExtra(WiFiLockService.EXTRA_URL, url)
+                        val serviceIntent = Intent(this@WebViewActivity, RayhunterMonitorService::class.java).apply {
+                            action = RayhunterMonitorService.ACTION_START
+                            putExtra(RayhunterMonitorService.EXTRA_SSID, ssid)
+                            putExtra(RayhunterMonitorService.EXTRA_URL, url)
                         }
                         
                         try {
@@ -252,8 +252,8 @@ class WebViewActivity : AppCompatActivity() {
         
         // 3. Clean up service
         try {
-            val serviceIntent = Intent(this, WiFiLockService::class.java).apply {
-                action = WiFiLockService.ACTION_STOP
+            val serviceIntent = Intent(this, RayhunterMonitorService::class.java).apply {
+                action = RayhunterMonitorService.ACTION_STOP
             }
             stopService(serviceIntent)
         } catch (e: Exception) {

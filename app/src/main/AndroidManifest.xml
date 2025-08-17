@@ -40,11 +40,11 @@
             android:parentActivityName=".MainActivity" />
         
         <service
-            android:name=".WiFiLockService"
+            android:name=".RayhunterMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Maintain WiFi connection for Rayhunter device" />
+                android:value="Monitor Rayhunter device status and maintain connection" />
         </service>
     </application>
 

@@ -21,7 +21,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
 
-class WiFiLockService : Service() {
+class RayhunterMonitorService : Service() {
     private lateinit var wifiLock: WifiManager.WifiLock
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var connectivityManager: ConnectivityManager
@@ -55,12 +55,12 @@ class WiFiLockService : Service() {
         // Notification IDs
         const val WARNING_NOTIFICATION_ID = 1002
         
-        private const val TAG = "WiFiLockService"
+        private const val TAG = "RayhunterMonitorService"
     }
     
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "WiFiLockService onCreate() called")
+        Log.d(TAG, "RayhunterMonitorService onCreate() called")
         
         // Initialize WiFi lock
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -91,7 +91,7 @@ class WiFiLockService : Service() {
         Log.d(TAG, "HTTP client initialized")
         
         createNotificationChannel()
-        Log.d(TAG, "WiFiLockService onCreate() completed successfully")
+        Log.d(TAG, "RayhunterMonitorService onCreate() completed successfully")
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
