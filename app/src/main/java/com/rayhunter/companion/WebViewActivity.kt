@@ -64,42 +64,7 @@ class WebViewActivity : AppCompatActivity() {
         // Store the current network before switching
         originalNetwork = connectivityManager.activeNetwork
         
-        // Start the foreground service immediately to show notification
-        val serviceIntent = Intent(this, WiFiLockService::class.java).apply {
-            action = WiFiLockService.ACTION_START
-            putExtra(WiFiLockService.EXTRA_SSID, networkSSID)
-            putExtra(WiFiLockService.EXTRA_URL, networkURL)
-        }
-        
-        try {
-            // Check if notifications are allowed before starting foreground service
-            val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true // Pre-Android 13 doesn't need notification permission
-            }
-            
-            if (!hasNotificationPermission) {
-                Log.w("WebViewActivity", "Notification permission not granted - foreground service may not work properly")
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-                Log.d("WebViewActivity", "Started foreground WiFi lock service")
-            } else {
-                startService(serviceIntent)
-                Log.d("WebViewActivity", "Started WiFi lock service")
-            }
-            
-            // Show a toast to confirm the service started
-            Toast.makeText(this, "WiFi lock active", Toast.LENGTH_SHORT).show()
-            
-        } catch (e: Exception) {
-            Log.e("WebViewActivity", "Failed to start WiFi lock service: ${e.message}")
-            Toast.makeText(this, "WiFi lock failed", Toast.LENGTH_SHORT).show()
-        }
-        
-        // Establish the WiFi connection and load the WebView
+        // Establish the WiFi connection first, then start service
         connectAndLoadWebView(networkSSID, networkPassword, networkURL)
         
         // Configure WebView
@@ -129,7 +94,7 @@ class WebViewActivity : AppCompatActivity() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 cacheMode = WebSettings.LOAD_NO_CACHE
-                userAgentString = "RayHunter Companion App"
+                userAgentString = "Rayhunter Companion App"
                 
                 // Enable dark mode support for websites
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -169,6 +134,45 @@ class WebViewActivity : AppCompatActivity() {
                         Log.d("WebViewActivity", "Connected to $ssid")
                         
                         connectivityManager.bindProcessToNetwork(network)
+                        
+                        // Now start the foreground service after network is ready
+                        val serviceIntent = Intent(this@WebViewActivity, WiFiLockService::class.java).apply {
+                            action = WiFiLockService.ACTION_START
+                            putExtra(WiFiLockService.EXTRA_SSID, ssid)
+                            putExtra(WiFiLockService.EXTRA_URL, url)
+                        }
+                        
+                        try {
+                            // Check if notifications are allowed before starting foreground service
+                            val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                ContextCompat.checkSelfPermission(this@WebViewActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                            } else {
+                                true // Pre-Android 13 doesn't need notification permission
+                            }
+                            
+                            if (!hasNotificationPermission) {
+                                Log.w("WebViewActivity", "Notification permission not granted - foreground service may not work properly")
+                            }
+                            
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                startForegroundService(serviceIntent)
+                                Log.d("WebViewActivity", "Started foreground WiFi lock service")
+                            } else {
+                                startService(serviceIntent)
+                                Log.d("WebViewActivity", "Started WiFi lock service")
+                            }
+                            
+                            // Show a toast to confirm the service started
+                            runOnUiThread {
+                                Toast.makeText(this@WebViewActivity, "WiFi lock active", Toast.LENGTH_SHORT).show()
+                            }
+                            
+                        } catch (e: Exception) {
+                            Log.e("WebViewActivity", "Failed to start WiFi lock service: ${e.message}")
+                            runOnUiThread {
+                                Toast.makeText(this@WebViewActivity, "WiFi lock failed", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                         
                         // Load the WebView
                         runOnUiThread {

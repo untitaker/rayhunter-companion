@@ -22,7 +22,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RayHunterCompanion"
+        android:theme="@style/Theme.RayhunterCompanion"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
@@ -44,7 +44,7 @@
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Maintain WiFi connection for RayHunter device" />
+                android:value="Maintain WiFi connection for Rayhunter device" />
         </service>
     </application>
 

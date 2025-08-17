@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.RayHunterCompanion" parent="Theme.Material3.DayNight">
+    <style name="Theme.RayhunterCompanion" parent="Theme.Material3.DayNight">
         <!-- Primary brand color (toolbar, app bar) -->
         <item name="colorPrimary">@color/rayhunter_purple</item>
         <item name="colorOnPrimary">@color/white</item>
