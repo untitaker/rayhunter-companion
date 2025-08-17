@@ -51,12 +51,21 @@ class MainActivity : AppCompatActivity() {
     
     private var savedNetworks = mutableListOf<SavedNetwork>()
     private var scanDialog: AlertDialog? = null
+    private var scanReceiver: BroadcastReceiver? = null
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (!isGranted) {
             Toast.makeText(this, "Location permission required for WiFi operations", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(this, "Can't maintain connection in background", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -99,6 +108,14 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        
+        // Request notification permission for Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) 
+                != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
     
     private fun showScanDialog() {
@@ -131,13 +148,29 @@ class MainActivity : AppCompatActivity() {
         binding.rvScannedNetworks.adapter = adapter
         binding.pbScanning.visibility = android.view.View.VISIBLE
         
-        val scanReceiver = object : BroadcastReceiver() {
+        scanReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val results = wifiManager.scanResults
+                // Check if dialog is still showing to prevent processing after dismissal
+                if (scanDialog?.isShowing != true) {
+                    return
+                }
+                
+                val results = try {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        wifiManager.scanResults
+                    } else {
+                        null
+                    }
+                } catch (e: SecurityException) {
+                    Log.w("MainActivity", "Security exception accessing scan results: ${e.message}")
+                    null
+                }
+                
                 if (!results.isNullOrEmpty()) {
                     val uniqueNetworks = mutableMapOf<String, ScannedNetwork>()
                     
                     for (result in results) {
+                        @Suppress("DEPRECATION")
                         val ssid = result.SSID ?: ""
                         if (ssid.isNotEmpty() && uniqueNetworks[ssid] == null) {
                             uniqueNetworks[ssid] = ScannedNetwork(ssid = ssid)
@@ -164,22 +197,39 @@ class MainActivity : AppCompatActivity() {
             .setView(binding.root)
             .setNegativeButton("Cancel", null)
             .setOnDismissListener {
-                try {
-                    unregisterReceiver(scanReceiver)
-                } catch (e: Exception) {
-                    // Ignore
-                }
+                cleanupScanReceiver()
             }
             .create()
             
         scanDialog?.show()
+        @Suppress("DEPRECATION")
         wifiManager.startScan()
         
         // Use cached results immediately
         lifecycleScope.launch {
             delay(200)
-            scanReceiver.onReceive(this@MainActivity, Intent())
+            // Check if dialog is still showing before processing cached results
+            if (scanDialog?.isShowing == true) {
+                scanReceiver?.onReceive(this@MainActivity, Intent())
+            }
         }
+    }
+    
+    private fun cleanupScanReceiver() {
+        scanReceiver?.let { receiver ->
+            try {
+                unregisterReceiver(receiver)
+                Log.d("MainActivity", "Scan receiver unregistered successfully")
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Scan receiver already unregistered: ${e.message}")
+            }
+            scanReceiver = null
+        }
+    }
+    
+    override fun onDestroy() {
+        cleanupScanReceiver()
+        super.onDestroy()
     }
     
     private fun showPasswordDialog(network: ScannedNetwork) {
@@ -256,29 +306,45 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Connecting to ${network.ssid}...", Toast.LENGTH_SHORT).show()
         
         lifecycleScope.launch {
-            val connected = connectToWifiSuspend(network.ssid, network.password)
-            
-            if (connected) {
-                Toast.makeText(this@MainActivity, "Connected to ${network.ssid}", Toast.LENGTH_SHORT).show()
+            try {
+                val connected = connectToWifiSuspend(network.ssid, network.password)
                 
-                // Wait for DHCP to get gateway IP
-                try {
-                    val gatewayIP = waitForValidDHCP()
-                    val url = "http://$gatewayIP:8080"
-                    
-                    val intent = Intent(this@MainActivity, WebViewActivity::class.java).apply {
-                        putExtra(WebViewActivity.EXTRA_NETWORK_SSID, network.ssid)
-                        putExtra(WebViewActivity.EXTRA_NETWORK_PASSWORD, network.password)
-                        putExtra(WebViewActivity.EXTRA_NETWORK_URL, url)
+                // Check if activity is still active before proceeding
+                if (!isDestroyed && !isFinishing) {
+                    if (connected) {
+                        Toast.makeText(this@MainActivity, "Connected to ${network.ssid}", Toast.LENGTH_SHORT).show()
+                        
+                        // Wait for DHCP to get gateway IP
+                        try {
+                            val gatewayIP = waitForValidDHCP()
+                            
+                            // Double-check activity state before starting new activity
+                            if (!isDestroyed && !isFinishing) {
+                                val url = "http://$gatewayIP:8080"
+                                
+                                val intent = Intent(this@MainActivity, WebViewActivity::class.java).apply {
+                                    putExtra(WebViewActivity.EXTRA_NETWORK_SSID, network.ssid)
+                                    putExtra(WebViewActivity.EXTRA_NETWORK_PASSWORD, network.password)
+                                    putExtra(WebViewActivity.EXTRA_NETWORK_URL, url)
+                                }
+                                startActivity(intent)
+                            }
+                            
+                        } catch (e: Exception) {
+                            if (!isDestroyed && !isFinishing) {
+                                Toast.makeText(this@MainActivity, "Failed to detect router IP: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        
+                    } else {
+                        Toast.makeText(this@MainActivity, "Failed to connect to ${network.ssid}", Toast.LENGTH_SHORT).show()
                     }
-                    startActivity(intent)
-                    
-                } catch (e: Exception) {
-                    Toast.makeText(this@MainActivity, "Failed to detect router IP: ${e.message}", Toast.LENGTH_LONG).show()
                 }
-                
-            } else {
-                Toast.makeText(this@MainActivity, "Failed to connect to ${network.ssid}", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error in browseNetwork: ${e.message}")
+                if (!isDestroyed && !isFinishing) {
+                    Toast.makeText(this@MainActivity, "Connection error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -286,6 +352,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun getGatewayIP(): String {
+        @Suppress("DEPRECATION")
         val dhcpInfo = wifiManager.dhcpInfo
         val gatewayIP = dhcpInfo.gateway
         
@@ -317,6 +384,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun connectToWifiSuspend(ssid: String, password: String): Boolean {
         return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val wifiNetworkSpecifier = WifiNetworkSpecifier.Builder()
                     .setSsid(ssid)
                     .setWpa2Passphrase(password)
@@ -339,12 +407,26 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                connectivityManager.requestNetwork(networkRequest, callback)
-                delay(8000)
-                connectivityManager.unregisterNetworkCallback(callback)
-                
-                connected
+                try {
+                    connectivityManager.requestNetwork(networkRequest, callback)
+                    delay(8000)
+                    connected
+                } finally {
+                    // Always cleanup the callback, even if an exception occurs
+                    try {
+                        connectivityManager.unregisterNetworkCallback(callback)
+                        Log.d("MainActivity", "Network callback unregistered successfully")
+                    } catch (e: Exception) {
+                        Log.w("MainActivity", "Error unregistering network callback: ${e.message}")
+                    }
+                }
+            } else {
+                // For API < 29, we can't use WifiNetworkSpecifier
+                Log.w("MainActivity", "API level ${Build.VERSION.SDK_INT} does not support WifiNetworkSpecifier")
+                false
+            }
         } catch (e: Exception) {
+            Log.e("MainActivity", "Error in connectToWifiSuspend: ${e.message}")
             false
         }
     }
