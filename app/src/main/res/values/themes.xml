@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.RayHunterCompanion" parent="Theme.Material3.DayNight">
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <!-- Primary brand color (toolbar, app bar) -->
+        <item name="colorPrimary">@color/rayhunter_purple</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Accent color (buttons, switches, etc.) -->
+        <item name="colorSecondary">@color/rayhunter_green</item>
+        <item name="colorOnSecondary">@color/black</item>
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/rayhunter_purple</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
     </style>
 </resources>

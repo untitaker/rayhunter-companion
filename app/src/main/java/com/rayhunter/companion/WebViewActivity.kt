@@ -13,6 +13,7 @@ import android.net.wifi.WifiNetworkSpecifier
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.content.res.Configuration
 import android.view.Menu
 import android.view.MenuItem
 import android.webkit.WebSettings
@@ -129,6 +130,20 @@ class WebViewActivity : AppCompatActivity() {
                 domStorageEnabled = true
                 cacheMode = WebSettings.LOAD_NO_CACHE
                 userAgentString = "RayHunter Companion App"
+                
+                // Enable dark mode support for websites
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                    isAlgorithmicDarkeningAllowed = nightModeFlags == Configuration.UI_MODE_NIGHT_YES
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    @Suppress("DEPRECATION")
+                    val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                    if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) {
+                        forceDark = WebSettings.FORCE_DARK_ON
+                    } else {
+                        forceDark = WebSettings.FORCE_DARK_OFF
+                    }
+                }
             }
         }
     }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- RayHunter Brand Colors -->
+    <color name="rayhunter_purple">#6B5CE6</color>
+    <color name="rayhunter_purple_dark">#5A4BC7</color>
+    <color name="rayhunter_purple_light">#8A7EEA</color>
+    <color name="rayhunter_green">#7ED321</color>
+    <color name="rayhunter_green_dark">#6BB31C</color>
+    <color name="rayhunter_green_light">#95E03A</color>
+    
+    <!-- Material Design Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="dark_gray">#424242</color>
+    <color name="light_gray">#F5F5F5</color>
+    
+    <!-- Status and accent colors -->
+    <color name="error_red">#F44336</color>
+    <color name="warning_orange">#FF9800</color>
+</resources>
