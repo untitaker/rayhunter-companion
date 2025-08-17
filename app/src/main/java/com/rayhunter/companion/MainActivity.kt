@@ -170,6 +170,7 @@ class MainActivity : AppCompatActivity() {
                     val uniqueNetworks = mutableMapOf<String, ScannedNetwork>()
                     
                     for (result in results) {
+                        // SSID property deprecated in API 33, but needed for older Android versions
                         @Suppress("DEPRECATION")
                         val ssid = result.SSID ?: ""
                         if (ssid.isNotEmpty() && uniqueNetworks[ssid] == null) {
@@ -202,6 +203,7 @@ class MainActivity : AppCompatActivity() {
             .create()
             
         scanDialog?.show()
+        // Deprecated but there is no replacement. Needed for fresh scan results
         @Suppress("DEPRECATION")
         wifiManager.startScan()
         
@@ -352,6 +354,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun getGatewayIP(): String {
+        // dhcpInfo deprecated in API 31, but simpler than ConnectivityManager alternative
         @Suppress("DEPRECATION")
         val dhcpInfo = wifiManager.dhcpInfo
         val gatewayIP = dhcpInfo.gateway

@@ -9,8 +9,8 @@ android {
 
     defaultConfig {
         applicationId "com.rayhunter.companion"
-        minSdk 24
-        targetSdk 34
+        minSdk 29
+        targetSdk 29
         versionCode 1
         versionName "1.0"
 

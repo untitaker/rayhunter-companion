@@ -11,6 +11,6 @@
         
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/rayhunter_purple</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

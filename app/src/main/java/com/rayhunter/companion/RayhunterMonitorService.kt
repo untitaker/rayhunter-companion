@@ -65,9 +65,9 @@ class RayhunterMonitorService : Service() {
         // Initialize WiFi lock
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            @Suppress("DEPRECATION")
-            wifiManager.createWifiLock("RayhunterWiFiLock")
+            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "RayhunterWiFiLock")
         } else {
+            // WIFI_MODE_FULL deprecated in API 29, but needed for pre-Q devices
             @Suppress("DEPRECATION")
             wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, "RayhunterWiFiLock")
         }

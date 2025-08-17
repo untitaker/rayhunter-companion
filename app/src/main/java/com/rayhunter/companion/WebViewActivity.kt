@@ -101,11 +101,14 @@ class WebViewActivity : AppCompatActivity() {
                     val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
                     isAlgorithmicDarkeningAllowed = nightModeFlags == Configuration.UI_MODE_NIGHT_YES
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // forceDark APIs deprecated in API 33, but needed for Android Q-S compatibility
                     @Suppress("DEPRECATION")
                     val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
                     if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) {
+                        @Suppress("DEPRECATION")
                         forceDark = WebSettings.FORCE_DARK_ON
                     } else {
+                        @Suppress("DEPRECATION")
                         forceDark = WebSettings.FORCE_DARK_OFF
                     }
                 }
